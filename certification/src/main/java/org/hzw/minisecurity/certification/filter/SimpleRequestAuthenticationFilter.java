@@ -23,6 +23,7 @@ import java.util.Optional;
  * @version 1.0
  * @date 2021/9/27 19:27
  */
+@Deprecated
 @Slf4j
 @RequiredArgsConstructor
 public class SimpleRequestAuthenticationFilter extends UsernamePasswordAuthenticationFilter {

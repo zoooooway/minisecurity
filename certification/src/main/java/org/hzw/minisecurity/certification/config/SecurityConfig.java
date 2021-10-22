@@ -7,6 +7,7 @@ import org.hzw.minisecurity.certification.handler.FailureAuthenticationEntryPoin
 import org.hzw.minisecurity.certification.handler.JsonAuthenticationFailureHandler;
 import org.hzw.minisecurity.certification.handler.JsonAuthenticationSuccessHandler;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.config.Customizer;
@@ -24,12 +25,16 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 
 import javax.sql.DataSource;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 
 /**
  * @author hzw
  * @version 1.0
  * @date 2021/9/23 19:49
  */
+@ConditionalOnMissingBean(SecurityConfig.class)
 @EnableWebSecurity(debug = true)
 public class SecurityConfig extends WebSecurityConfigurerAdapter {
 
@@ -64,18 +69,10 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
         return super.authenticationManagerBean();
     }
 
-
-
-    @Autowired
-    private DataSource dataSource;
-
-    @Autowired
-    private JsonAuthenticationSuccessHandler jsonAuthenticationSuccessHandler;
     @Autowired
     private JsonAuthenticationFailureHandler jsonAuthenticationFailureHandler;
     @Autowired
     private UserDetailsService userDetailsServiceImpl;
-
     @Autowired
     private JwtAuthenticationTokenFilter jwtAuthenticationTokenFilter;
     @Autowired
@@ -84,6 +81,13 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     private ObjectMapper objectMapper = new ObjectMapper();
     private BCryptPasswordEncoder bCryptPasswordEncoder = new BCryptPasswordEncoder();
 
+    private List<String> permitPatterns;
+
+    {
+        permitPatterns = new ArrayList<>();
+        permitPatterns.add(FORM_LOGIN_AUTHENTICATE_URL);
+        permitPatterns.add(FORM_LOGIN_REQUEST_URL);
+    }
 
 
     @Override
@@ -94,9 +98,11 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
 //                .formLogin(getFormLoginConfigurerCustomizer())
                 // 请求路径的安全校验配置
                 .authorizeRequests(getExpressionInterceptUrlRegistryCustomizer())
+                //  认证失败的处理端点
                 .exceptionHandling( except -> except.authenticationEntryPoint(failureAuthenticationEntryPoint))
 //                .addFilterAt(simpleRequestAuthenticationFilter(), UsernamePasswordAuthenticationFilter.class)
                 .addFilterBefore(jwtAuthenticationTokenFilter, UsernamePasswordAuthenticationFilter.class)
+                // 禁用session
                 .sessionManagement().sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 .and()
                 .csrf(csrf -> csrf.disable());
@@ -107,9 +113,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
         return request -> {
             request
                     .antMatchers(
-                            FORM_LOGIN_AUTHENTICATE_URL,
-                            FORM_LOGIN_REQUEST_URL,
-                            "/test/me"
+                            this.permitPatterns.toArray(new String[0])
                     ).permitAll()
                     .anyRequest().authenticated();
         };
@@ -135,7 +139,7 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
                     .loginProcessingUrl(FORM_LOGIN_REQUEST_URL)
                     .usernameParameter(USERNAME_PARAMETER)
                     .passwordParameter(PASSWORD_PARAMETER)
-                    .successHandler(jsonAuthenticationSuccessHandler)
+//                    .successHandler(jsonAuthenticationSuccessHandler)
                     .failureHandler(jsonAuthenticationFailureHandler);
         };
     }
@@ -143,37 +147,13 @@ public class SecurityConfig extends WebSecurityConfigurerAdapter {
     @Override
     protected void configure(AuthenticationManagerBuilder auth) throws Exception {
         auth
-//                .inMemoryAuthentication()
-//                .withUser("hzw").password(bCryptPasswordEncoder.encode("123")).roles("USER").and().passwordEncoder(new BCryptPasswordEncoder());
-
-//                .jdbcAuthentication()
-//                .usersByUsernameQuery(
-//                        "select username,password, enabled from users where username=?")
-//                .authoritiesByUsernameQuery(
-//                        "select username, authority from authorities where username=?")
-//                .dataSource(dataSource)
                 .userDetailsService(userDetailsServiceImpl)
                 .passwordEncoder(new BCryptPasswordEncoder());
     }
 
-    /**
-     * Expose the UserDetailsService as a Bean
-     */
-//    @Bean
-//    @Override
-//    public UserDetailsService userDetailsServiceBean() {
-//        JdbcDaoImpl userDetailsService = new JdbcDaoImpl();
-//        userDetailsService.setDataSource(dataSource);
-//        return userDetailsService;
-//    }
 
-    @Bean
-    public SimpleRequestAuthenticationFilter simpleRequestAuthenticationFilter() throws Exception {
-        SimpleRequestAuthenticationFilter simpleRequestAuthenticationFilter = new SimpleRequestAuthenticationFilter(objectMapper);
-        simpleRequestAuthenticationFilter.setAuthenticationFailureHandler(jsonAuthenticationFailureHandler);
-        simpleRequestAuthenticationFilter.setAuthenticationSuccessHandler(jsonAuthenticationSuccessHandler);
-        simpleRequestAuthenticationFilter.setAuthenticationManager(authenticationManager());
-        simpleRequestAuthenticationFilter.setFilterProcessesUrl("/authenticate/login");
-        return simpleRequestAuthenticationFilter;
+    protected SecurityConfig addPermitPattern(String pattern) {
+        this.permitPatterns.add(pattern);
+        return this;
     }
 }

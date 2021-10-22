@@ -25,9 +25,9 @@ public class PermissionService
     /** 管理员角色权限标识 */
     private static final String SUPER_ADMIN = "admin";
 
-    private static final String ROLE_DELIMETER = ",";
+    private static final String ROLE_DELIMITER = ",";
 
-    private static final String PERMISSION_DELIMETER = ",";
+    private static final String PERMISSION_DELIMITER = ",";
 
     @Autowired
     private TokenService tokenService;
@@ -81,7 +81,7 @@ public class PermissionService
             return false;
         }
         Set<String> authorities = loginUser.getPermissions();
-        for (String permission : permissions.split(PERMISSION_DELIMETER))
+        for (String permission : permissions.split(PERMISSION_DELIMITER))
         {
             if (permission != null && hasPermissions(authorities, permission))
             {
@@ -147,7 +147,7 @@ public class PermissionService
         {
             return false;
         }
-        for (String role : roles.split(ROLE_DELIMETER))
+        for (String role : roles.split(ROLE_DELIMITER))
         {
             if (hasRole(role))
             {
